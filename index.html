@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        [v-cloak] {
+            display: none;
+        }
+        @media print{
+            .white{
+                visibility:hidden;
+            }
+            #header{
+                display: none;
+            }
+        }
+        body{
+            margin: 0;
+            padding: 0;
+        }
+        ol,li{
+            padding-left: 0;
+            margin-left: 1em;
+        }
+        li{
+            margin-left: 2em;
+        }
+        #header{
+            position: sticky;
+            top: 0;left: 0;
+            background-color: #c4c4c4;
+            border-bottom: #bdbdbd solid 2px;
+            font-size: 0;
+        }
+        .title{
+            margin: 15px;
+            font-size: 36px;
+            font-weight: bold;
+        }
+        .chapter-number{
+            display: block;
+            margin-bottom: 4px;
+            font-size: 22px;
+            font-weight: bold;
+        }
+        .red{
+            color: red;
+        }
+        .white{
+            user-select: none;
+            color: white;
+        }
+        .white:hover{
+            cursor: pointer;
+            color: red;
+        }
+        .file{
+            display: none;
+        }
+        .file-upload{
+            display: inline-block;
+        }
+        .btn-print{
+            display: inline-block;
+            text-decoration: none;
+        }
+        .gray-frame{
+            font-size: 16px;
+            background-color: white;
+            user-select: none;
+            margin: .5em 0 .5em .5em;
+            padding: .3em;
+            border-radius: 15px;
+            width: 15em;
+            color: gray;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .gray-frame:hover{
+            background-color: #8a8a8a;
+            color: #fff;
+            cursor: pointer;
+        }
+        .select{
+            background-color: #cedfe0;
+            cursor: pointer;
+        }
+        .noAction{
+            pointer-events: none;
+            background-color: #92a2a3;
+            color: #c4c4c4;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" v-cloak>
+        
+        <!-- ヘッダー -->
+        <div id="header">
+
+            <!-- 更新ボタン -->
+            <span class="gray-frame" :class="{noAction:!file.load}"
+                style="display:inline-block;width: 1.5em;border-radius:50%;" v-on:click="update">→
+            </span>
+            <!-- ファイルアップロード -->
+            <label class="file-upload gray-frame">{{ file.name }}<input class="file" type="file" @change="onFileLoad"></label>
+            <!-- ページ印刷ボタン -->
+            <a href="javascript:void(0)" class="btn-print gray-frame" :class="{noAction:!file.load}" onclick="window.print();return false;" style="width: 9em;">
+                <label style="cursor: pointer;">このページを印刷</label>
+            </a>
+            <!-- 答えを表示 -->
+            <span class="gray-frame" :class="[{noAction:!file.load},{select:!config.answer}]"
+                style="display:inline-block;width: 7em;" v-on:click="onConfigAnswer">{{ config.label.answer }}
+            </span>
+            <!-- 説明を表示 -->
+            <span class="gray-frame" :class="[{noAction:!file.load},{select:!config.description}]"
+                style="display:inline-block;width: 7em;" v-on:click="onConfigDescription">{{ config.label.description }}
+            </span>
+            <!-- 括弧を表示 -->
+            <span class="gray-frame" :class="[{noAction:!file.load},{select:!config.paren}]"
+                style="display:inline-block;width: 7em;" v-on:click="onConfigParen">{{ config.label.paren }}
+            </span>
+            <!-- シャッフルボタン -->
+            <span class="gray-frame" :class="{noAction:!file.load}"
+                style="display:inline-block;width: 7em;" v-on:click="onShuffle">シャッフル
+            </span>    
+
+        </div>
+
+        <!-- タイトル -->
+        <div class="title" v-if="!file.load" style="color:gray;">ここにテキストが表示されます．</div>
+        <div class="title" v-else>{{ file.title }}</div>
+
+        <ol v-for="(chapter,index) in file.text">
+            <div class="chapter-number">{{ index + 1 }}.</div>
+            <li v-for="section in chapter">
+                <span v-for="(chunck,index) in section">
+                    <span v-if="index%2 == 0" v-show="config.description">{{ chunck }}</span>
+                    <span v-else style="white-space: nowrap;">
+                        <span v-show="config.paren"> ( </span>
+                        <span class="red" :class="{white:!config.answer}">{{ chunck }}</span>
+                        <span v-show="config.paren"> ) </span>
+                    </span>
+                </span>
+            </li>
+        </ol>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <script>
+    function list_copy(x,y){
+        for(var i=0;i<y.length;i++){
+            x.push(y[i])
+        }
+    }
+    function list_clear(x){
+        x.splice(0,x.length)
+    }
+    function list_shuffle(x){
+        for(var i = x.length - 1; i > 0; i--){
+            var r = Math.floor(Math.random() * (i + 1));
+            var tmp = x[i];
+            x[i] = x[r];
+            x[r] = tmp;
+        }
+    }
+    var vm = new Vue({
+            el: "#app",
+            data:{
+                config:{
+                    answer: true,
+                    paren: true,
+                    description: true,
+                    label:{
+                        answer: '回答を非表示',
+                        paren:  '括弧を非表示',
+                        description: '説明を非表示'
+                    }
+                },
+                file:{
+                    e: null,
+                    load: false,
+                    name: 'ファイルを選択してください',
+                    title: '',
+                    text: []
+                }
+            },
+            methods:{
+
+                onFileLoad: function(e){
+
+                    /* 選択されたファイル情報を取得 */
+                    let file = e.target.files[0]
+
+                    /* 指定無し */
+                    if(file == undefined) return
+                    else {
+                        this.file.load = true
+                        this.file.e = e;
+                    }
+                    
+                    /* ファイルサイズ上限 */
+                    if( file.size > 100000 ){
+                        alert('File size over.')
+                        return;
+                    }
+
+                    let reader = new FileReader()
+                    reader.onload = (e) =>{
+
+                        /* ファイルデータを取得 */
+                        let text = e.target.result.split(/\r\n|\r|\n/)
+                        /* ファイル名取得 */
+                        this.file.name = file.name
+                        /* タイトルを取得 */
+                        this.file.title = text.shift();text.shift()
+                        /* 空欄と文章を分割 */
+                        for(var i=0;i<text.length;i++){
+                            text[i] = text[i].split('$')
+                        }
+                        /* 章へ分割 */
+                        var chapter = []
+                        var tmp = []
+                        for(var i=0;i<text.length;i++){
+                            if( text[i] == '' ){
+                                chapter.push(tmp.slice())
+                                list_clear(tmp)
+                            }
+                            else{
+                                tmp.push(text[i])
+                            }
+                        }
+                        chapter.push(tmp.slice())
+
+                        /* データを表示 */
+                        list_clear(this.file.text)
+                        list_copy(this.file.text,chapter)
+
+                    }
+                    reader.readAsText(file)
+                },
+                onConfigAnswer: function(){
+                    this.config.answer = !this.config.answer
+                    if( this.config.answer )
+                        this.config.label.answer = '回答を非表示'
+                    else
+                        this.config.label.answer = '回答を表示'
+                },
+                onConfigParen: function(){
+                    this.config.paren = !this.config.paren
+                    if( this.config.paren )
+                        this.config.label.paren = '括弧を非表示'
+                    else
+                        this.config.label.paren = '括弧を表示'
+                },
+                onConfigDescription: function(){
+                    this.config.description = !this.config.description
+                    if( this.config.description )
+                        this.config.label.description = '説明を非表示'
+                    else
+                        this.config.label.description = '説明を表示'
+                },
+                onShuffle: function(){
+
+                    var result = []
+                    var text = this.file.text.slice()
+
+                    /* 問題を平坦化 */
+                    for(var i=0;i<text.length;i++){
+                        for(var j=0;j<text[i].length;j++){
+                            result.push(text[i][j])
+                        }
+                    }
+
+                    /* シャッフル */
+                    list_shuffle(result)
+
+                    /* 等間隔に章化 */
+                    var num = Math.ceil(result.length/text.length);
+                    for(var i=1;i<text.length;i++){
+                        result.splice((num*i+i-1),0,'')
+                    }
+
+                    /* 配列を章分割 */
+                    var chapter = []
+                    var tmp = []
+                    for(var i=0;i<result.length;i++){
+                        if( result[i] == '' ){
+                            chapter.push(tmp.slice())
+                            list_clear(tmp)
+                        }
+                        else{
+                            tmp.push(result[i])
+                        }
+                    }
+                    chapter.push(tmp.slice())
+
+                    /* 結果を反映 */
+                    list_clear(this.file.text)
+                    list_copy(this.file.text,chapter)
+                },
+                update: function(){
+                    this.onFileLoad(this.file.e)
+                }
+            }
+        })
+    </script>
+</body>
+</html>
